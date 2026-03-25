@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "allowSyntheticDefaultImports": true,
+    "baseUrl": ".",
+    "paths": {
+      "@kinderquest/api": [
+        "packages/api/src"
+      ],
+      "@kinderquest/types": [
+        "packages/types/src"
+      ],
+      "@kinderquest/ui": [
+        "packages/ui/src"
+      ]
+    }
+  }
+}

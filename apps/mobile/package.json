@@ -1,0 +1,45 @@
+{
+  "name": "mobile",
+  "version": "0.1.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "dev": "PATH=/opt/homebrew/lib/ruby/gems/3.4.0/bin:/opt/homebrew/bin:/usr/local/bin:$PATH EXPO_NO_TELEMETRY=1 expo start",
+    "start": "PATH=/opt/homebrew/lib/ruby/gems/3.4.0/bin:/opt/homebrew/bin:/usr/local/bin:$PATH EXPO_NO_TELEMETRY=1 expo start",
+    "android": "PATH=/opt/homebrew/lib/ruby/gems/3.4.0/bin:/opt/homebrew/bin:/usr/local/bin:$PATH EXPO_NO_TELEMETRY=1 expo run:android",
+    "ios": "PATH=/opt/homebrew/lib/ruby/gems/3.4.0/bin:/opt/homebrew/bin:/usr/local/bin:$PATH EXPO_NO_TELEMETRY=1 expo run:ios",
+    "web": "PATH=/opt/homebrew/lib/ruby/gems/3.4.0/bin:/opt/homebrew/bin:/usr/local/bin:$PATH EXPO_NO_TELEMETRY=1 expo start --web",
+    "config": "PATH=/opt/homebrew/lib/ruby/gems/3.4.0/bin:/opt/homebrew/bin:/usr/local/bin:$PATH EXPO_NO_TELEMETRY=1 expo config --type public",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@expo/vector-icons": "^14.0.4",
+    "@kinderquest/api": "workspace:*",
+    "@kinderquest/types": "workspace:*",
+    "@kinderquest/ui": "workspace:*",
+    "@react-native-async-storage/async-storage": "2.1.2",
+    "@supabase/supabase-js": "^2.49.4",
+    "expo": "~53.0.0",
+    "expo-constants": "~17.1.8",
+    "expo-device": "^7.1.4",
+    "expo-font": "~13.3.2",
+    "expo-linear-gradient": "~14.1.5",
+    "expo-linking": "~7.1.7",
+    "expo-notifications": "^0.31.5",
+    "expo-router": "~5.1.11",
+    "expo-status-bar": "~2.2.3",
+    "expo-updates": "~0.28.18",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "react-native": "0.79.6",
+    "react-native-reanimated": "~3.17.4",
+    "react-native-safe-area-context": "5.4.0",
+    "react-native-screens": "~4.11.1",
+    "react-native-web": "~0.20.0"
+  },
+  "devDependencies": {
+    "@react-native-community/cli": "^20.1.2",
+    "babel-preset-expo": "~13.2.5"
+  }
+}

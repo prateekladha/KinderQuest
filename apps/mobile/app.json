@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "KinderQuest",
+    "slug": "kinderquest",
+    "scheme": "kinderquest",
+    "version": "1.0.0",
+    "icon": "./assets/icon.png",
+    "orientation": "default",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.kinderquest.app",
+      "buildNumber": "1",
+      "googleServicesFile": "./GoogleService-Info.plist"
+    },
+    "android": {
+      "package": "com.kinderquest.app",
+      "googleServicesFile": "./google-services.json",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#F7F1DF"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-notifications"
+    ],
+    "web": {
+      "bundler": "metro"
+    },
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "62e488c9-bc56-4d6f-a04c-3289c17c23d1"
+      }
+    }
+  }
+}
