@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { Session } from "@supabase/supabase-js";
 import { getMobileSupabaseClient } from "./supabase";
 
 export interface PendingInvite {
@@ -13,10 +14,12 @@ export interface MembershipState {
   isLoading: boolean;
   hasMember: boolean;
   invite: PendingInvite | null;
+  role: "parent" | "child" | null;
 }
 
 interface FamilyMemberRow {
   id: string;
+  role: "parent" | "child";
 }
 
 interface InviteRow {
@@ -27,20 +30,23 @@ interface InviteRow {
   role: "parent" | "child";
 }
 
-export function useMembershipState(enabled: boolean): MembershipState & {
+export function useMembershipState(session: Session | null): MembershipState & {
   refresh: () => Promise<void>;
   acceptInvite: () => Promise<void>;
   createFamily: (input: { familyName: string; displayName: string }) => Promise<void>;
 } {
+  const enabled = Boolean(session?.user.id);
   const [isLoading, setIsLoading] = useState(enabled);
   const [hasMember, setHasMember] = useState(false);
   const [invite, setInvite] = useState<PendingInvite | null>(null);
+  const [role, setRole] = useState<"parent" | "child" | null>(null);
 
   async function load() {
     if (!enabled) {
       setIsLoading(false);
       setHasMember(false);
       setInvite(null);
+      setRole(null);
       return;
     }
 
@@ -50,25 +56,25 @@ export function useMembershipState(enabled: boolean): MembershipState & {
     if (!client) {
       setHasMember(false);
       setInvite(null);
+      setRole(null);
       setIsLoading(false);
       return;
     }
 
-    const sessionResult = await client.auth.getSession();
-    const session = sessionResult.data.session;
     const user = session?.user;
     const email = user?.email?.trim().toLowerCase();
 
     if (!user?.id || !email) {
       setHasMember(false);
       setInvite(null);
+      setRole(null);
       setIsLoading(false);
       return;
     }
 
     const memberResult = await client
       .from("family_members")
-      .select("id")
+      .select("id, role")
       .eq("user_id", user.id)
       .limit(1)
       .maybeSingle<FamilyMemberRow>();
@@ -83,6 +89,7 @@ export function useMembershipState(enabled: boolean): MembershipState & {
     if (memberResult.data) {
       setHasMember(true);
       setInvite(null);
+      setRole(memberResult.data.role);
       setIsLoading(false);
       return;
     }
@@ -103,6 +110,7 @@ export function useMembershipState(enabled: boolean): MembershipState & {
     }
 
     setHasMember(false);
+    setRole(null);
     setInvite(
       inviteResult.data
         ? {
@@ -124,8 +132,6 @@ export function useMembershipState(enabled: boolean): MembershipState & {
       throw new Error("Supabase environment is not configured.");
     }
 
-    const sessionResult = await client.auth.getSession();
-    const session = sessionResult.data.session;
     const user = session?.user;
 
     if (!user?.id) {
@@ -172,8 +178,6 @@ export function useMembershipState(enabled: boolean): MembershipState & {
       throw new Error("Supabase environment is not configured.");
     }
 
-    const sessionResult = await client.auth.getSession();
-    const session = sessionResult.data.session;
     const user = session?.user;
 
     if (!user?.id) {
@@ -233,6 +237,7 @@ export function useMembershipState(enabled: boolean): MembershipState & {
         if (active) {
           setHasMember(false);
           setInvite(null);
+          setRole(null);
           setIsLoading(false);
         }
       }
@@ -243,12 +248,13 @@ export function useMembershipState(enabled: boolean): MembershipState & {
     return () => {
       active = false;
     };
-  }, [enabled]);
+  }, [enabled, session?.user.id, session?.user.email]);
 
   return {
     isLoading,
     hasMember,
     invite,
+    role,
     refresh: load,
     acceptInvite,
     createFamily

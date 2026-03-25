@@ -13,15 +13,9 @@ export default function HistoryScreen() {
   const { width } = useWindowDimensions();
   const isTablet = width >= 768;
   const pathname = usePathname();
-  const { data, isLoading, refresh, historyPages, loadHistoryPage } = useAppData();
+  const { data, isLoading, historyPages, loadHistoryPage, refresh } = useAppData();
   const { showToast } = useToast();
   const [selectedType, setSelectedType] = useState<"task_assignment" | "reward_redemption">("task_assignment");
-
-  useEffect(() => {
-    if (pathname === "/history" && !isLoading) {
-      void refresh();
-    }
-  }, [pathname]);
 
   useEffect(() => {
     if (pathname !== "/history" || isLoading || data?.currentUserRole !== "parent") {
@@ -64,6 +58,8 @@ export default function HistoryScreen() {
   return (
     <ScreenShell
       headerRight={<Pill label={`${selectedHistoryPage.total} Items`} tone="blue" />}
+      onRefresh={refresh}
+      refreshing={isLoading}
       subtitle="Parent Review"
       title="History"
     >

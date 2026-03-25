@@ -9,7 +9,7 @@ import { useMembershipState } from "../lib/membership";
 
 export default function CreateFamilyScreen() {
   const { session, isLoading: authLoading } = useAuth();
-  const { isLoading, hasMember, invite, createFamily } = useMembershipState(Boolean(session));
+  const { isLoading, hasMember, invite, createFamily } = useMembershipState(session);
   const [familyName, setFamilyName] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);

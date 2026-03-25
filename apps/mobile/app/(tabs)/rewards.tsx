@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Redirect, usePathname } from "expo-router";
+import { Redirect } from "expo-router";
 import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { tokens } from "@kinderquest/ui";
@@ -12,16 +12,9 @@ import { useAppData } from "../../lib/app-data";
 export default function RewardsScreen() {
   const { width } = useWindowDimensions();
   const isTablet = width >= 768;
-  const pathname = usePathname();
   const { data, isLoading, fulfillRewardRedemption, refresh } = useAppData();
   const { showToast } = useToast();
   const [pendingFulfillmentRedemptionId, setPendingFulfillmentRedemptionId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (pathname === "/rewards" && !isLoading) {
-      void refresh();
-    }
-  }, [pathname]);
 
   if (isLoading || !data) {
     return <LoadingState />;
@@ -51,6 +44,8 @@ export default function RewardsScreen() {
   return (
     <ScreenShell
       headerRight={<Pill label={`${myRewards.length} Active`} tone="blue" />}
+      onRefresh={refresh}
+      refreshing={isLoading}
       subtitle="Points & Rewards"
       title="My Rewards"
     >

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Redirect, usePathname } from "expo-router";
+import { Redirect } from "expo-router";
 import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { tokens } from "@kinderquest/ui";
@@ -12,17 +12,10 @@ import { useAppData } from "../../lib/app-data";
 export default function StoreScreen() {
   const { width } = useWindowDimensions();
   const isTablet = width >= 768;
-  const pathname = usePathname();
   const { data, isLoading, source, redeemReward, refresh } = useAppData();
   const { showToast } = useToast();
   const [pendingPurchaseRewardId, setPendingPurchaseRewardId] = useState<string | null>(null);
   const isParentView = data?.currentUserRole === "parent";
-
-  useEffect(() => {
-    if (pathname === "/store" && !isLoading) {
-      void refresh();
-    }
-  }, [pathname]);
 
   if (isLoading || !data) {
     return <LoadingState />;
@@ -60,6 +53,8 @@ export default function StoreScreen() {
   return (
     <ScreenShell
       headerRight={<Pill label={`${data.snapshot.childBalance} Stars`} />}
+      onRefresh={refresh}
+      refreshing={isLoading}
       subtitle="Points & Rewards"
       title="The Magic Toy Box"
     >

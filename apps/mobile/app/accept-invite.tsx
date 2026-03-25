@@ -9,7 +9,7 @@ import { useMembershipState } from "../lib/membership";
 
 export default function AcceptInviteScreen() {
   const { session, isLoading: authLoading } = useAuth();
-  const { isLoading, hasMember, invite, acceptInvite } = useMembershipState(Boolean(session));
+  const { isLoading, hasMember, invite, acceptInvite } = useMembershipState(session);
 
   if (authLoading || isLoading) {
     return <LoadingState />;

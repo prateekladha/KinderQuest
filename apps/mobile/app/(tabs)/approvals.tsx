@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Redirect, usePathname } from "expo-router";
+import { useState } from "react";
+import { Redirect } from "expo-router";
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { tokens } from "@kinderquest/ui";
@@ -12,18 +12,11 @@ import { useAppData } from "../../lib/app-data";
 export default function ApprovalsScreen() {
   const { width } = useWindowDimensions();
   const isTablet = width >= 768;
-  const pathname = usePathname();
   const { data, isLoading, approveTaskApproval, rejectTaskApproval, approveRewardApproval, rejectRewardApproval, refresh } = useAppData();
   const { showToast } = useToast();
   const [selectedType, setSelectedType] = useState<"task_assignment" | "reward_redemption">("task_assignment");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<"approve" | "reject" | null>(null);
-
-  useEffect(() => {
-    if (pathname === "/approvals" && !isLoading) {
-      void refresh();
-    }
-  }, [pathname]);
 
   if (isLoading || !data) {
     return <LoadingState />;
@@ -91,6 +84,8 @@ export default function ApprovalsScreen() {
   return (
     <ScreenShell
       headerRight={<Pill label={`${sortedApprovals.length} Pending`} tone="orange" />}
+      onRefresh={refresh}
+      refreshing={isLoading}
       subtitle="Parent Review"
       title="Approvals"
     >

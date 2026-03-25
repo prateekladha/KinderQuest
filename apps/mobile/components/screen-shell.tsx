@@ -1,5 +1,5 @@
 import type { PropsWithChildren, ReactNode, RefObject } from "react";
-import { ScrollView, StyleSheet, Text, View, useWindowDimensions, type ScrollViewProps } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, Text, View, useWindowDimensions, type ScrollViewProps } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { tokens } from "@kinderquest/ui";
 
@@ -8,8 +8,17 @@ export function ScreenShell({
   subtitle,
   headerRight,
   children,
-  scrollRef
-}: PropsWithChildren<{ title?: ReactNode; subtitle?: string; headerRight?: ReactNode; scrollRef?: RefObject<ScrollView | null> }>) {
+  scrollRef,
+  onRefresh,
+  refreshing = false
+}: PropsWithChildren<{
+  title?: ReactNode;
+  subtitle?: string;
+  headerRight?: ReactNode;
+  scrollRef?: RefObject<ScrollView | null>;
+  onRefresh?: () => void | Promise<void>;
+  refreshing?: boolean;
+}>) {
   const { width } = useWindowDimensions();
   const isTablet = width >= 768;
 
@@ -18,6 +27,11 @@ export function ScreenShell({
       <ScrollView
         ref={scrollRef}
         keyboardShouldPersistTaps="handled"
+        refreshControl={
+          onRefresh
+            ? <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} tintColor={tokens.color.secondary} />
+            : undefined
+        }
         contentContainerStyle={[styles.content, isTablet && styles.contentTablet] satisfies ScrollViewProps["contentContainerStyle"]}
       >
         {(title || subtitle || headerRight) && (

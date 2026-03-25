@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Redirect, usePathname } from "expo-router";
+import { Redirect } from "expo-router";
 import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { tokens } from "@kinderquest/ui";
@@ -12,17 +12,10 @@ import { useAppData } from "../../lib/app-data";
 export default function TasksScreen() {
   const { width } = useWindowDimensions();
   const isTablet = width >= 768;
-  const pathname = usePathname();
   const { data, isLoading, source, summary, claimTask, refresh } = useAppData();
   const { showToast } = useToast();
   const [pendingTaskId, setPendingTaskId] = useState<string | null>(null);
   const isParentView = data?.currentUserRole === "parent";
-
-  useEffect(() => {
-    if (pathname === "/tasks" && !isLoading) {
-      void refresh();
-    }
-  }, [pathname]);
 
   if (isLoading || !data || !summary) {
     return <LoadingState />;
@@ -75,6 +68,8 @@ export default function TasksScreen() {
     <ScreenShell
       headerRight={<Pill label={`${summary.pendingTasks} Tasks Left`} tone="blue" />}
       subtitle="Points & Rewards"
+      onRefresh={refresh}
+      refreshing={isLoading}
       title="Today's Missions"
     >
       <GradientHero

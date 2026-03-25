@@ -6,15 +6,13 @@ import { GradientHero, SurfaceCard } from "../components/cards";
 import { LoadingState } from "../components/loading-state";
 import { ScreenShell, SectionHeading } from "../components/screen-shell";
 import { useAuth } from "../components/auth-provider";
-import { useAppData } from "../lib/app-data";
 import { useMembershipState } from "../lib/membership";
 
 export default function IndexPage() {
   const { isLoading, session } = useAuth();
-  const membership = useMembershipState(Boolean(session));
-  const appData = useAppData();
+  const membership = useMembershipState(session);
 
-  if (isLoading || (session && membership.isLoading) || (session && membership.hasMember && appData.isLoading)) {
+  if (isLoading || (session && membership.isLoading)) {
     return <LoadingState />;
   }
 
@@ -82,7 +80,7 @@ export default function IndexPage() {
   }
 
   if (membership.hasMember) {
-    return <Redirect href={appData.data?.currentUserRole === "parent" ? "/(tabs)/dashboard" : "/(tabs)/home"} />;
+    return <Redirect href={membership.role === "parent" ? "/dashboard" : "/home"} />;
   }
 
   return <Redirect href={membership.invite ? "/accept-invite" : "/start-setup"} />;

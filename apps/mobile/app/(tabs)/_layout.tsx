@@ -3,7 +3,6 @@ import { Redirect, Tabs } from "expo-router";
 import { tokens } from "@kinderquest/ui";
 import { useAuth } from "../../components/auth-provider";
 import { LoadingState } from "../../components/loading-state";
-import { useAppData } from "../../lib/app-data";
 import { useMembershipState } from "../../lib/membership";
 
 const tabItems = {
@@ -19,8 +18,7 @@ const tabItems = {
 
 export default function TabLayout() {
   const { session, isLoading } = useAuth();
-  const membership = useMembershipState(Boolean(session));
-  const { data, isLoading: appDataLoading } = useAppData();
+  const membership = useMembershipState(session);
 
   if (!isLoading && !session) {
     return <Redirect href="/sign-in" />;
@@ -30,11 +28,11 @@ export default function TabLayout() {
     return <Redirect href="/accept-invite" />;
   }
 
-  if (session && appDataLoading) {
+  if (session && membership.isLoading) {
     return <LoadingState />;
   }
 
-  const isParent = data?.currentUserRole === "parent";
+  const isParent = membership.role === "parent";
 
   return (
     <Tabs

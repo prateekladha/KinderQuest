@@ -164,12 +164,58 @@ interface TaskNotificationContextRow {
   task_definitions: { title: string } | null;
 }
 
+interface ClaimTaskResultRow {
+  assignment_id: string;
+  family_id: string;
+  child_member_id: string;
+  child_display_name: string;
+  task_title: string | null;
+  parent_user_ids: string[] | null;
+}
+
+interface ApproveTaskResultRow {
+  assignment_id: string;
+  family_id: string;
+  child_member_id: string;
+  child_user_id: string | null;
+  task_title: string | null;
+  points_awarded?: number;
+}
+
 interface RewardNotificationContextRow {
   id: string;
   family_id: string;
   child_member_id: string;
   family_members: { display_name: string } | null;
   reward_definitions: { title: string } | null;
+}
+
+interface RequestRewardResultRow {
+  redemption_id: string;
+  family_id: string;
+  child_member_id: string;
+  child_display_name: string;
+  reward_title: string | null;
+  reward_cost: number;
+  parent_user_ids: string[] | null;
+}
+
+interface RewardDecisionResultRow {
+  redemption_id: string;
+  family_id: string;
+  child_member_id: string;
+  child_user_id: string | null;
+  reward_title: string | null;
+  reward_cost?: number;
+}
+
+interface FulfillRewardResultRow {
+  redemption_id: string;
+  family_id: string;
+  child_member_id: string;
+  child_display_name: string;
+  reward_title: string | null;
+  parent_user_ids: string[] | null;
 }
 
 interface RewardApprovalRow {
@@ -223,11 +269,13 @@ interface WeeklyProgress {
 }
 
 export class SupabaseAppDataRepository implements AppDataRepository {
+  private currentUserIdPromise: Promise<string | null> | null = null;
+  private currentMemberByUserId = new Map<string, Promise<FamilyMemberRow | null>>();
+
   constructor(private readonly client: SupabaseClient) {}
 
   async getAppData(): Promise<AppMockData> {
-    const userResult = await this.client.auth.getUser();
-    const userId = userResult.data.user?.id;
+    const userId = await this.getCurrentUserId();
 
     if (!userId) {
       return mockAppData;
@@ -239,36 +287,11 @@ export class SupabaseAppDataRepository implements AppDataRepository {
       return mockAppData;
     }
 
-    const childMember = member.role === "child" ? member : await this.getFirstChildMember(member.family_id);
-
-    if (!childMember) {
-      return mockAppData;
+    if (member.role === "parent") {
+      return this.getParentAppData(member);
     }
 
-    const [tasks, rewards, childMembers, recentWins, weeklyProgress, totalEarnedPoints] = await Promise.all([
-      this.getTodayTasks(childMember.id),
-      this.getRewards(childMember.family_id, childMember.id),
-      this.getChildMembers(childMember.family_id),
-      this.getRecentWins(childMember.id),
-      this.getCurrentWeekProgress(childMember.id),
-      this.getTotalEarnedPoints(childMember.id)
-    ]);
-    const approvals = member.role === "parent" ? await this.getPendingApprovals(member.family_id) : [];
-
-    const snapshot = buildLiveSnapshot(childMember, tasks, rewards, weeklyProgress, totalEarnedPoints);
-
-    return {
-      ...mockAppData,
-      currentUserRole: member.role,
-      childMembers,
-      snapshot,
-      recentWins,
-      tasks,
-      rewards,
-      approvals
-      ,
-      history: []
-    };
+    return this.getChildAppData(member);
   }
 
   async getHistoryPage(input: {
@@ -291,295 +314,164 @@ export class SupabaseAppDataRepository implements AppDataRepository {
   }
 
   async claimTask(taskId: string): Promise<void> {
-    const userId = await this.requireUserId();
-    const member = await this.getCurrentMember(userId);
-
-    if (!member) {
-      throw new Error("No family member found for current user.");
-    }
-
-    if (member.role !== "child") {
-      throw new Error("Tasks can only be claimed from a child account.");
-    }
-
-    const { error } = await this.client
-      .from("task_assignments")
-      .update({
-        status: "claimed",
-        claimed_at: new Date().toISOString()
+    const result = await this.client
+      .rpc("claim_task_assignment", {
+        target_assignment_id: taskId
       })
-      .eq("id", taskId)
-      .eq("child_member_id", member.id);
+      .single<ClaimTaskResultRow>();
 
-    if (error) {
-      console.info(`[claim] update-error=${JSON.stringify(error)}`);
-      throw error;
+    if (result.error) {
+      console.info(`[claim] rpc-error=${JSON.stringify(result.error)}`);
+      throw result.error;
     }
 
-    const taskContext = await this.getTaskNotificationContext(taskId);
-    if (taskContext) {
+    if (result.data) {
       await this.sendPushNotificationSafely({
-        recipientUserIds: await this.getParentUserIds(taskContext.family_id),
+        recipientUserIds: result.data.parent_user_ids ?? [],
         title: "Task claimed",
-        body: `${member.display_name} claimed ${taskContext.task_definitions?.title ?? "a task"}.`,
+        body: `${result.data.child_display_name} claimed ${result.data.task_title ?? "a task"}.`,
         data: {
           type: "task_claimed",
           taskAssignmentId: taskId,
-          childMemberId: member.id
+          childMemberId: result.data.child_member_id
         }
       });
     }
   }
 
   async approveTaskApproval(taskAssignmentId: string): Promise<void> {
-    const userId = await this.requireUserId();
-    const member = await this.getCurrentMember(userId);
-
-    if (!member) {
-      throw new Error("No family member found for current user.");
-    }
-
-    if (member.role !== "parent") {
-      throw new Error("Only parents can approve tasks.");
-    }
-
-    const { error } = await this.client.rpc("approve_task_assignment", {
+    const result = await this.client.rpc("approve_task_assignment", {
       target_assignment_id: taskAssignmentId
-    });
+    }).single<ApproveTaskResultRow>();
 
-    if (error) {
-      throw error;
+    if (result.error) {
+      throw result.error;
     }
 
-    const taskContext = await this.getTaskNotificationContext(taskAssignmentId);
-    if (taskContext) {
-      const childUserId = await this.getChildUserId(taskContext.child_member_id);
+    if (result.data) {
       await this.sendPushNotificationSafely({
-        recipientUserIds: childUserId ? [childUserId] : [],
+        recipientUserIds: result.data.child_user_id ? [result.data.child_user_id] : [],
         title: "Task approved",
-        body: `Your parent approved ${taskContext.task_definitions?.title ?? "your task"}.`,
+        body: `Your parent approved ${result.data.task_title ?? "your task"}.`,
         data: {
           type: "task_approved",
           taskAssignmentId: taskAssignmentId,
-          childMemberId: taskContext.child_member_id
+          childMemberId: result.data.child_member_id
         }
       });
     }
   }
 
   async rejectTaskApproval(taskAssignmentId: string): Promise<void> {
-    const userId = await this.requireUserId();
-    const member = await this.getCurrentMember(userId);
-
-    if (!member) {
-      throw new Error("No family member found for current user.");
-    }
-
-    if (member.role !== "parent") {
-      throw new Error("Only parents can reject tasks.");
-    }
-
-    const { error } = await this.client.rpc("reject_task_assignment", {
+    const result = await this.client.rpc("reject_task_assignment", {
       target_assignment_id: taskAssignmentId
-    });
+    }).single<ApproveTaskResultRow>();
 
-    if (error) {
-      throw error;
+    if (result.error) {
+      throw result.error;
     }
 
-    const taskContext = await this.getTaskNotificationContext(taskAssignmentId);
-    if (taskContext) {
-      const childUserId = await this.getChildUserId(taskContext.child_member_id);
+    if (result.data) {
       await this.sendPushNotificationSafely({
-        recipientUserIds: childUserId ? [childUserId] : [],
+        recipientUserIds: result.data.child_user_id ? [result.data.child_user_id] : [],
         title: "Task rejected",
-        body: `Your parent rejected ${taskContext.task_definitions?.title ?? "your task"}.`,
+        body: `Your parent rejected ${result.data.task_title ?? "your task"}.`,
         data: {
           type: "task_rejected",
           taskAssignmentId: taskAssignmentId,
-          childMemberId: taskContext.child_member_id
+          childMemberId: result.data.child_member_id
         }
       });
     }
   }
 
   async approveRewardApproval(rewardRedemptionId: string): Promise<void> {
-    const userId = await this.requireUserId();
-    const member = await this.getCurrentMember(userId);
-
-    if (!member) {
-      throw new Error("No family member found for current user.");
-    }
-
-    if (member.role !== "parent") {
-      throw new Error("Only parents can approve rewards.");
-    }
-
-    const { error } = await this.client.rpc("approve_reward_redemption", {
+    const result = await this.client.rpc("approve_reward_redemption", {
       target_redemption_id: rewardRedemptionId
-    });
+    }).single<RewardDecisionResultRow>();
 
-    if (error) {
-      throw error;
+    if (result.error) {
+      throw result.error;
     }
 
-    const rewardContext = await this.getRewardNotificationContext(rewardRedemptionId);
-    if (rewardContext) {
-      const childUserId = await this.getChildUserId(rewardContext.child_member_id);
+    if (result.data) {
       await this.sendPushNotificationSafely({
-        recipientUserIds: childUserId ? [childUserId] : [],
+        recipientUserIds: result.data.child_user_id ? [result.data.child_user_id] : [],
         title: "Reward approved",
-        body: `Your parent approved ${rewardContext.reward_definitions?.title ?? "your reward"}.`,
+        body: `Your parent approved ${result.data.reward_title ?? "your reward"}.`,
         data: {
           type: "reward_approved",
           rewardRedemptionId,
-          childMemberId: rewardContext.child_member_id
+          childMemberId: result.data.child_member_id
         }
       });
     }
   }
 
   async rejectRewardApproval(rewardRedemptionId: string): Promise<void> {
-    const userId = await this.requireUserId();
-    const member = await this.getCurrentMember(userId);
-
-    if (!member) {
-      throw new Error("Only parents can reject rewards.");
-    }
-
-    const { error } = await this.client.rpc("reject_reward_redemption", {
+    const result = await this.client.rpc("reject_reward_redemption", {
       target_redemption_id: rewardRedemptionId
-    });
+    }).single<RewardDecisionResultRow>();
 
-    if (error) {
-      throw error;
+    if (result.error) {
+      throw result.error;
     }
 
-    const rewardContext = await this.getRewardNotificationContext(rewardRedemptionId);
-    if (rewardContext) {
-      const childUserId = await this.getChildUserId(rewardContext.child_member_id);
+    if (result.data) {
       await this.sendPushNotificationSafely({
-        recipientUserIds: childUserId ? [childUserId] : [],
+        recipientUserIds: result.data.child_user_id ? [result.data.child_user_id] : [],
         title: "Reward rejected",
-        body: `Your parent rejected ${rewardContext.reward_definitions?.title ?? "your reward"}.`,
+        body: `Your parent rejected ${result.data.reward_title ?? "your reward"}.`,
         data: {
           type: "reward_rejected",
           rewardRedemptionId,
-          childMemberId: rewardContext.child_member_id
+          childMemberId: result.data.child_member_id
         }
       });
     }
   }
 
   async redeemReward(rewardId: string): Promise<void> {
-    const userId = await this.requireUserId();
-    const member = await this.getCurrentMember(userId);
+    const result = await this.client.rpc("request_reward_redemption", {
+      target_reward_id: rewardId
+    }).single<RequestRewardResultRow>();
 
-    if (!member) {
-      throw new Error("No family member found for current user.");
+    if (result.error) {
+      throw result.error;
     }
 
-    if (member.role !== "child") {
-      throw new Error("Rewards can only be redeemed from a child account.");
+    if (result.data) {
+      await this.sendPushNotificationSafely({
+        recipientUserIds: result.data.parent_user_ids ?? [],
+        title: "Reward requested",
+        body: `${result.data.child_display_name} requested ${result.data.reward_title ?? "a reward"}.`,
+        data: {
+          type: "reward_requested",
+          rewardDefinitionId: rewardId,
+          childMemberId: result.data.child_member_id
+        }
+      });
     }
-
-    const reward = await this.getRewardById(rewardId);
-
-    if (!reward) {
-      throw new Error("Reward not found.");
-    }
-
-    if (member.stars_balance < reward.cost) {
-      throw new Error(`You need ${reward.cost - member.stars_balance} more stars for this reward.`);
-    }
-
-    const existingPending = await this.client
-      .from("reward_redemptions")
-      .select("id")
-      .eq("child_member_id", member.id)
-      .eq("reward_definition_id", rewardId)
-      .eq("status", "requested")
-      .limit(1)
-      .maybeSingle<{ id: string }>();
-
-    if (existingPending.error) {
-      throw existingPending.error;
-    }
-
-    if (existingPending.data) {
-      throw new Error("This reward is already waiting for parent approval.");
-    }
-
-    const existingApproved = await this.client
-      .from("reward_redemptions")
-      .select("id")
-      .eq("child_member_id", member.id)
-      .eq("reward_definition_id", rewardId)
-      .eq("status", "approved")
-      .limit(1)
-      .maybeSingle<{ id: string }>();
-
-    if (existingApproved.error) {
-      throw existingApproved.error;
-    }
-
-    if (existingApproved.data) {
-      throw new Error("This reward is already approved. Mark it fulfilled before requesting it again.");
-    }
-
-    const { error } = await this.client.from("reward_redemptions").insert({
-      family_id: member.family_id,
-      reward_definition_id: rewardId,
-      child_member_id: member.id,
-      cost_at_redemption: reward.cost
-    });
-
-    if (error) {
-      throw error;
-    }
-
-    await this.sendPushNotificationSafely({
-      recipientUserIds: await this.getParentUserIds(member.family_id),
-      title: "Reward requested",
-      body: `${member.display_name} requested ${reward.title}.`,
-      data: {
-        type: "reward_requested",
-        rewardDefinitionId: rewardId,
-        childMemberId: member.id
-      }
-    });
   }
 
   async fulfillRewardRedemption(rewardRedemptionId: string): Promise<void> {
-    const userId = await this.requireUserId();
-    const member = await this.getCurrentMember(userId);
-
-    if (!member) {
-      throw new Error("No family member found for current user.");
-    }
-
-    if (member.role !== "child") {
-      throw new Error("Only child accounts can mark rewards fulfilled.");
-    }
-
-    const { error } = await this.client.rpc("fulfill_reward_redemption", {
+    const result = await this.client.rpc("fulfill_reward_redemption", {
       target_redemption_id: rewardRedemptionId
-    });
+    }).single<FulfillRewardResultRow>();
 
-    if (error) {
-      throw error;
+    if (result.error) {
+      throw result.error;
     }
 
-    const rewardContext = await this.getRewardNotificationContext(rewardRedemptionId);
-    if (rewardContext) {
+    if (result.data) {
       await this.sendPushNotificationSafely({
-        recipientUserIds: await this.getParentUserIds(rewardContext.family_id),
+        recipientUserIds: result.data.parent_user_ids ?? [],
         title: "Reward fulfilled",
-        body: `${member.display_name} marked ${rewardContext.reward_definitions?.title ?? "a reward"} as fulfilled.`,
+        body: `${result.data.child_display_name} marked ${result.data.reward_title ?? "a reward"} as fulfilled.`,
         data: {
           type: "reward_fulfilled",
           rewardRedemptionId,
-          childMemberId: member.id
+          childMemberId: result.data.child_member_id
         }
       });
     }
@@ -689,68 +581,6 @@ export class SupabaseAppDataRepository implements AppDataRepository {
     }
   }
 
-  private async getParentUserIds(familyId: string) {
-    const { data, error } = await this.client
-      .from("family_members")
-      .select("user_id")
-      .eq("family_id", familyId)
-      .eq("role", "parent")
-      .returns<FamilyUserRow[]>();
-
-    if (error) {
-      throw error;
-    }
-
-    return (data ?? [])
-      .map((row) => row.user_id)
-      .filter((value): value is string => typeof value === "string" && value.length > 0);
-  }
-
-  private async getChildUserId(childMemberId: string) {
-    const { data, error } = await this.client
-      .from("family_members")
-      .select("user_id")
-      .eq("id", childMemberId)
-      .limit(1)
-      .maybeSingle<FamilyUserRow>();
-
-    if (error) {
-      throw error;
-    }
-
-    return typeof data?.user_id === "string" && data.user_id.length > 0 ? data.user_id : null;
-  }
-
-  private async getTaskNotificationContext(taskAssignmentId: string) {
-    const { data, error } = await this.client
-      .from("task_assignments")
-      .select("id, family_id, child_member_id, family_members!task_assignments_child_member_id_fkey(display_name), task_definitions(title)")
-      .eq("id", taskAssignmentId)
-      .limit(1)
-      .maybeSingle<TaskNotificationContextRow>();
-
-    if (error) {
-      throw error;
-    }
-
-    return data;
-  }
-
-  private async getRewardNotificationContext(rewardRedemptionId: string) {
-    const { data, error } = await this.client
-      .from("reward_redemptions")
-      .select("id, family_id, child_member_id, family_members!reward_redemptions_child_member_id_fkey(display_name), reward_definitions(title)")
-      .eq("id", rewardRedemptionId)
-      .limit(1)
-      .maybeSingle<RewardNotificationContextRow>();
-
-    if (error) {
-      throw error;
-    }
-
-    return data;
-  }
-
   private async sendPushNotificationSafely(input: {
     recipientUserIds: string[];
     title: string;
@@ -779,18 +609,28 @@ export class SupabaseAppDataRepository implements AppDataRepository {
   }
 
   private async getCurrentMember(userId: string) {
-    const { data, error } = await this.client
-      .from("family_members")
-      .select("id, family_id, display_name, role, stars_balance")
-      .eq("user_id", userId)
-      .limit(1)
-      .maybeSingle<FamilyMemberRow>();
-
-    if (error) {
-      throw error;
+    const cached = this.currentMemberByUserId.get(userId);
+    if (cached) {
+      return cached;
     }
 
-    return data;
+    const promise = (async () => {
+      const { data, error } = await this.client
+        .from("family_members")
+        .select("id, family_id, display_name, role, stars_balance")
+        .eq("user_id", userId)
+        .limit(1)
+        .maybeSingle<FamilyMemberRow>();
+
+      if (error) {
+        throw error;
+      }
+
+      return data;
+    })();
+
+    this.currentMemberByUserId.set(userId, promise);
+    return promise;
   }
 
   private async getFirstChildMember(familyId: string) {
@@ -807,6 +647,51 @@ export class SupabaseAppDataRepository implements AppDataRepository {
     }
 
     return data;
+  }
+
+  private async getParentAppData(member: FamilyMemberRow): Promise<AppMockData> {
+    const [childMembers, approvals, rewards] = await Promise.all([
+      this.getChildMembers(member.family_id),
+      this.getPendingApprovals(member.family_id),
+      this.getActiveRewards(member.family_id)
+    ]);
+
+    return {
+      ...mockAppData,
+      currentUserRole: "parent",
+      childMembers,
+      snapshot: buildParentBootstrapSnapshot(member),
+      recentWins: [],
+      tasks: [],
+      rewards,
+      approvals,
+      history: []
+    };
+  }
+
+  private async getChildAppData(member: FamilyMemberRow): Promise<AppMockData> {
+    const [tasks, rewards, childMembers, recentWins, weeklyProgress, totalEarnedPoints] = await Promise.all([
+      this.getTodayTasks(member.id),
+      this.getRewards(member.family_id, member.id),
+      this.getChildMembers(member.family_id),
+      this.getRecentWins(member.id),
+      this.getCurrentWeekProgress(member.id),
+      this.getTotalEarnedPoints(member.id)
+    ]);
+
+    const snapshot = buildLiveSnapshot(member, tasks, rewards, weeklyProgress, totalEarnedPoints);
+
+    return {
+      ...mockAppData,
+      currentUserRole: "child",
+      childMembers,
+      snapshot,
+      recentWins,
+      tasks,
+      rewards,
+      approvals: [],
+      history: []
+    };
   }
 
   private async getTodayTasks(childMemberId: string): Promise<ChildTask[]> {
@@ -1044,6 +929,28 @@ export class SupabaseAppDataRepository implements AppDataRepository {
     });
   }
 
+  private async getActiveRewards(familyId: string) {
+    const rewardsResult = await this.client
+      .from("reward_definitions")
+      .select("id, title, cost")
+      .eq("family_id", familyId)
+      .eq("is_active", true)
+      .order("cost", { ascending: true })
+      .returns<RewardDefinitionRow[]>();
+
+    if (rewardsResult.error) {
+      throw rewardsResult.error;
+    }
+
+    return (rewardsResult.data ?? []).map((reward, index) => ({
+      id: reward.id,
+      title: reward.title,
+      cost: reward.cost,
+      accentColor: rewardCardColors[index % rewardCardColors.length],
+      icon: mapRewardIcon(reward.title)
+    }));
+  }
+
   private async getRecentWins(childMemberId: string): Promise<ChildRecentWin[]> {
     const { data, error } = await this.client
       .from("task_assignments")
@@ -1236,29 +1143,24 @@ export class SupabaseAppDataRepository implements AppDataRepository {
     });
   }
 
-  private async getRewardById(rewardId: string) {
-    const { data, error } = await this.client
-      .from("reward_definitions")
-      .select("id, title, cost")
-      .eq("id", rewardId)
-      .maybeSingle<RewardDefinitionRow>();
-
-    if (error) {
-      throw error;
-    }
-
-    return data;
-  }
-
   private async requireUserId() {
-    const userResult = await this.client.auth.getUser();
-    const userId = userResult.data.user?.id;
+    const userId = await this.getCurrentUserId();
 
     if (!userId) {
       throw new Error("No active Supabase user session.");
     }
 
     return userId;
+  }
+
+  private async getCurrentUserId() {
+    if (!this.currentUserIdPromise) {
+      this.currentUserIdPromise = this.client.auth
+        .getSession()
+        .then((result) => result.data.session?.user?.id ?? null);
+    }
+
+    return this.currentUserIdPromise;
   }
 
   private async ensureTodayAssignments(childMemberId: string) {
@@ -1336,6 +1238,27 @@ function buildLiveSnapshot(
     monthlyRewardLabel: nextReward?.title ?? "New family reward",
     weeklyStreakDays: weeklyProgress.count,
     weeklyCompletedDayIndexes: weeklyProgress.completedDayIndexes
+  };
+}
+
+function buildParentBootstrapSnapshot(member: FamilyMemberRow): FamilySnapshot {
+  return {
+    familyName: "KinderQuest Family",
+    childName: member.display_name,
+    childBalance: member.stars_balance,
+    levelLabel: "Family Setup",
+    levelProgressCurrent: 0,
+    levelProgressTarget: 100,
+    nextLevelReward: "Add your first child",
+    todayGoalTitle: "Get Started",
+    todayGoalEarned: 0,
+    todayGoalTarget: 100,
+    todayGoalReward: "Create your first routine",
+    monthlyDistributed: 0,
+    monthlyTarget: 200,
+    monthlyRewardLabel: "First family reward",
+    weeklyStreakDays: 0,
+    weeklyCompletedDayIndexes: []
   };
 }
 

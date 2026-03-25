@@ -1,6 +1,5 @@
-import { useEffect } from "react";
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
-import { Redirect, usePathname } from "expo-router";
+import { Redirect } from "expo-router";
 import { tokens } from "@kinderquest/ui";
 import { Pill, SurfaceCard } from "../../components/cards";
 import { LoadingState } from "../../components/loading-state";
@@ -11,14 +10,7 @@ import { registerDebugTap } from "../../lib/debug-unlock";
 export default function DashboardScreen() {
   const { width } = useWindowDimensions();
   const isTablet = width >= 768;
-  const pathname = usePathname();
   const { data, isLoading, refresh } = useAppData();
-
-  useEffect(() => {
-    if (pathname === "/dashboard" && !isLoading) {
-      void refresh();
-    }
-  }, [pathname]);
 
   if (isLoading || !data) {
     return <LoadingState />;
@@ -40,6 +32,8 @@ export default function DashboardScreen() {
   return (
     <ScreenShell
       headerRight={<Pill label={`${totalStars} Stars`} />}
+      onRefresh={refresh}
+      refreshing={isLoading}
       subtitle="Parent Overview"
       title={
         <Pressable onPress={registerDebugTap}>

@@ -5,7 +5,7 @@ import {
   mockRepository,
   SupabaseAppDataRepository
 } from "@kinderquest/api";
-import type { AppMockData, HistoryEntityType, ParentHistoryItem } from "@kinderquest/types";
+import type { AppMockData, HistoryEntityType, ParentApproval, ParentHistoryItem, StoreReward } from "@kinderquest/types";
 import { getMobileSupabaseEnv } from "./env";
 import { getMobileSupabaseClient } from "./supabase";
 
@@ -22,6 +22,12 @@ interface HistoryPageState {
   isInitialized: boolean;
 }
 
+interface SharedSnapshotState {
+  data: AppMockData | null;
+  isLoading: boolean;
+  source: "mock" | "supabase";
+}
+
 const EMPTY_HISTORY_STATE: Record<HistoryEntityType, HistoryPageState> = {
   task_assignment: {
     items: [],
@@ -36,6 +42,136 @@ const EMPTY_HISTORY_STATE: Record<HistoryEntityType, HistoryPageState> = {
     isInitialized: false
   }
 };
+
+const listeners = new Set<(state: SharedSnapshotState) => void>();
+let sharedRepositoryPromise: Promise<AppDataRepository> | null = null;
+let sharedLoadPromise: Promise<void> | null = null;
+let sharedState: SharedSnapshotState = {
+  data: null,
+  isLoading: true,
+  source: "mock"
+};
+
+function emitSharedState() {
+  for (const listener of listeners) {
+    listener(sharedState);
+  }
+}
+
+function updateSharedState(next: Partial<SharedSnapshotState>) {
+  sharedState = {
+    ...sharedState,
+    ...next
+  };
+  emitSharedState();
+}
+
+async function resolveRepository(): Promise<AppDataRepository> {
+  if (!sharedRepositoryPromise) {
+    sharedRepositoryPromise = (async () => {
+      const env = getMobileSupabaseEnv();
+      const client = getMobileSupabaseClient();
+      return env && client ? new SupabaseAppDataRepository(client) : mockRepository;
+    })();
+  }
+
+  return sharedRepositoryPromise;
+}
+
+async function loadSharedSnapshot(repositoryOverride?: AppDataRepository) {
+  if (!sharedLoadPromise) {
+    sharedLoadPromise = (async () => {
+      const repository = repositoryOverride ?? (await resolveRepository());
+      let next: AppMockData;
+      let nextSource: "mock" | "supabase";
+
+      try {
+        next = await repository.getAppData();
+        nextSource = repository instanceof SupabaseAppDataRepository ? "supabase" : "mock";
+        if (__DEV__) {
+          console.info(`[app-data] source=${nextSource} loaded`);
+        }
+      } catch (error) {
+        next = await mockRepository.getAppData();
+        nextSource = "mock";
+        if (__DEV__) {
+          console.info("[app-data] source=mock fallback-after-error");
+          if (error instanceof Error) {
+            console.info(`[app-data] error=${error.message}`);
+          } else if (typeof error === "object" && error !== null) {
+            console.info(`[app-data] error=${JSON.stringify(error)}`);
+          } else {
+            console.info(`[app-data] error=${String(error)}`);
+          }
+        }
+      }
+
+      updateSharedState({
+        data: next,
+        source: nextSource,
+        isLoading: false
+      });
+    })().finally(() => {
+      sharedLoadPromise = null;
+    });
+  }
+
+  return sharedLoadPromise;
+}
+
+function revalidateSharedSnapshot(repositoryOverride?: AppDataRepository) {
+  void loadSharedSnapshot(repositoryOverride);
+}
+
+function mutateSharedData(transform: (current: AppMockData) => AppMockData) {
+  if (!sharedState.data) {
+    return;
+  }
+
+  updateSharedState({
+    data: transform(sharedState.data)
+  });
+}
+
+function updateTaskState(data: AppMockData, taskId: string, state: "claimed" | "approved") {
+  return {
+    ...data,
+    tasks: data.tasks.map((task) => (task.id === taskId ? { ...task, state } : task))
+  };
+}
+
+function updateRewardState(
+  data: AppMockData,
+  rewardId: string,
+  next: Partial<Pick<StoreReward, "redemptionId" | "redemptionStatus">>
+) {
+  return {
+    ...data,
+    rewards: data.rewards.map((reward) => (reward.id === rewardId ? { ...reward, ...next } : reward))
+  };
+}
+
+function removeApproval(data: AppMockData, approvalId: string) {
+  return {
+    ...data,
+    approvals: data.approvals.filter((approval) => approval.id !== approvalId)
+  };
+}
+
+function findApproval(data: AppMockData, approvalId: string): ParentApproval | null {
+  return data.approvals.find((approval) => approval.id === approvalId) ?? null;
+}
+
+export function resetAppDataCache() {
+  sharedRepositoryPromise = null;
+  sharedLoadPromise = null;
+  sharedState = {
+    data: null,
+    isLoading: true,
+    source: "mock"
+  };
+  emitSharedState();
+}
 
 export function useAppData(): AppDataState & {
   summary: ReturnType<typeof getAppSummary> | null;
@@ -66,119 +202,151 @@ export function useAppData(): AppDataState & {
   loadHistoryPage: (entityType: HistoryEntityType, options?: { reset?: boolean; limit?: number }) => Promise<void>;
   refresh: () => Promise<void>;
 } {
-  const [data, setData] = useState<AppMockData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [source, setSource] = useState<"mock" | "supabase">("mock");
+  const [snapshotState, setSnapshotState] = useState<SharedSnapshotState>(sharedState);
   const [historyPages, setHistoryPages] = useState<Record<HistoryEntityType, HistoryPageState>>(EMPTY_HISTORY_STATE);
 
-  async function resolveRepository(): Promise<AppDataRepository> {
-    const env = getMobileSupabaseEnv();
-    const client = getMobileSupabaseClient();
-    return env && client ? new SupabaseAppDataRepository(client) : mockRepository;
-  }
-
-  async function load(repositoryOverride?: AppDataRepository) {
-    const repository = repositoryOverride ?? (await resolveRepository());
-    let next: AppMockData;
-
-    try {
-      next = await repository.getAppData();
-      setSource(repository instanceof SupabaseAppDataRepository ? "supabase" : "mock");
-      if (__DEV__) {
-        console.info(`[app-data] source=${repository instanceof SupabaseAppDataRepository ? "supabase" : "mock"} loaded`);
-      }
-    } catch (error) {
-      next = await mockRepository.getAppData();
-      setSource("mock");
-      if (__DEV__) {
-        console.info("[app-data] source=mock fallback-after-error");
-        if (error instanceof Error) {
-          console.info(`[app-data] error=${error.message}`);
-        } else if (typeof error === "object" && error !== null) {
-          console.info(`[app-data] error=${JSON.stringify(error)}`);
-        } else {
-          console.info(`[app-data] error=${String(error)}`);
-        }
-      }
-    }
-
-    setData(next);
-    setIsLoading(false);
-    setHistoryPages(EMPTY_HISTORY_STATE);
-  }
-
   useEffect(() => {
-    let active = true;
+    listeners.add(setSnapshotState);
 
-    async function bootstrap() {
-      await load();
+    if (sharedState.data === null && sharedState.isLoading) {
+      void loadSharedSnapshot();
+    } else {
+      setSnapshotState(sharedState);
     }
-
-    void bootstrap();
 
     return () => {
-      active = false;
+      listeners.delete(setSnapshotState);
     };
   }, []);
 
   return {
-    data,
-    isLoading,
-    source,
-    summary: data ? getAppSummary(data) : null,
+    data: snapshotState.data,
+    isLoading: snapshotState.isLoading,
+    source: snapshotState.source,
+    summary: snapshotState.data ? getAppSummary(snapshotState.data) : null,
     refresh: async () => {
-      setIsLoading(true);
-      await load();
+      updateSharedState({ isLoading: true });
+      await loadSharedSnapshot();
+      setHistoryPages(EMPTY_HISTORY_STATE);
     },
     claimTask: async (taskId: string) => {
       const repository = await resolveRepository();
       await repository.claimTask(taskId);
-      await load(repository);
+      mutateSharedData((current) => updateTaskState(current, taskId, "claimed"));
+      revalidateSharedSnapshot(repository);
+      setHistoryPages(EMPTY_HISTORY_STATE);
     },
     approveTaskApproval: async (taskAssignmentId: string) => {
       const repository = await resolveRepository();
+      const taskApproval = snapshotState.data ? findApproval(snapshotState.data, taskAssignmentId) : null;
       await repository.approveTaskApproval(taskAssignmentId);
-      await load(repository);
+      mutateSharedData((current) => {
+        let next = removeApproval(current, taskAssignmentId);
+
+        if (taskApproval?.entityType === "task_assignment") {
+          const matchingTask = next.tasks.find((task) => task.title === taskApproval.title);
+          if (matchingTask) {
+            next = updateTaskState(next, matchingTask.id, "approved");
+          }
+        }
+
+        return next;
+      });
+      revalidateSharedSnapshot(repository);
+      setHistoryPages(EMPTY_HISTORY_STATE);
     },
     rejectTaskApproval: async (taskAssignmentId: string) => {
       const repository = await resolveRepository();
       await repository.rejectTaskApproval(taskAssignmentId);
-      await load(repository);
+      mutateSharedData((current) => removeApproval(current, taskAssignmentId));
+      revalidateSharedSnapshot(repository);
+      setHistoryPages(EMPTY_HISTORY_STATE);
     },
     approveRewardApproval: async (rewardRedemptionId: string) => {
       const repository = await resolveRepository();
+      const rewardApproval = snapshotState.data ? findApproval(snapshotState.data, rewardRedemptionId) : null;
       await repository.approveRewardApproval(rewardRedemptionId);
-      await load(repository);
+      mutateSharedData((current) => {
+        let next = removeApproval(current, rewardRedemptionId);
+
+        if (rewardApproval?.entityType === "reward_redemption") {
+          const matchingReward = next.rewards.find((reward) => reward.title === rewardApproval.title);
+          if (matchingReward) {
+            next = updateRewardState(next, matchingReward.id, {
+              redemptionId: rewardRedemptionId,
+              redemptionStatus: "approved"
+            });
+          }
+        }
+
+        return next;
+      });
+      revalidateSharedSnapshot(repository);
+      setHistoryPages(EMPTY_HISTORY_STATE);
     },
     rejectRewardApproval: async (rewardRedemptionId: string) => {
       const repository = await resolveRepository();
+      const rewardApproval = snapshotState.data ? findApproval(snapshotState.data, rewardRedemptionId) : null;
       await repository.rejectRewardApproval(rewardRedemptionId);
-      await load(repository);
+      mutateSharedData((current) => {
+        let next = removeApproval(current, rewardRedemptionId);
+
+        if (rewardApproval?.entityType === "reward_redemption") {
+          const matchingReward = next.rewards.find((reward) => reward.title === rewardApproval.title);
+          if (matchingReward) {
+            next = updateRewardState(next, matchingReward.id, {
+              redemptionId: rewardRedemptionId,
+              redemptionStatus: "rejected"
+            });
+          }
+        }
+
+        return next;
+      });
+      revalidateSharedSnapshot(repository);
+      setHistoryPages(EMPTY_HISTORY_STATE);
     },
     redeemReward: async (rewardId: string) => {
       const repository = await resolveRepository();
       await repository.redeemReward(rewardId);
-      await load(repository);
+      mutateSharedData((current) =>
+        updateRewardState(current, rewardId, {
+          redemptionId: `pending-${rewardId}`,
+          redemptionStatus: "requested"
+        })
+      );
+      revalidateSharedSnapshot(repository);
+      setHistoryPages(EMPTY_HISTORY_STATE);
     },
     fulfillRewardRedemption: async (rewardRedemptionId: string) => {
       const repository = await resolveRepository();
       await repository.fulfillRewardRedemption(rewardRedemptionId);
-      await load(repository);
+      mutateSharedData((current) => ({
+        ...current,
+        rewards: current.rewards.map((reward) =>
+          reward.redemptionId === rewardRedemptionId ? { ...reward, redemptionStatus: "fulfilled" } : reward
+        )
+      }));
+      revalidateSharedSnapshot(repository);
+      setHistoryPages(EMPTY_HISTORY_STATE);
     },
     createFamilyMemberInvite: async (input) => {
       const repository = await resolveRepository();
       await repository.createFamilyMemberInvite(input);
-      await load(repository);
+      revalidateSharedSnapshot(repository);
+      setHistoryPages(EMPTY_HISTORY_STATE);
     },
     createTask: async (input) => {
       const repository = await resolveRepository();
       await repository.createTask(input);
-      await load(repository);
+      revalidateSharedSnapshot(repository);
+      setHistoryPages(EMPTY_HISTORY_STATE);
     },
     createReward: async (input) => {
       const repository = await resolveRepository();
       await repository.createReward(input);
-      await load(repository);
+      revalidateSharedSnapshot(repository);
+      setHistoryPages(EMPTY_HISTORY_STATE);
     },
     historyPages,
     loadHistoryPage: async (entityType, options) => {

@@ -25,9 +25,14 @@ module.exports = {
   name: "KinderQuest",
   slug: "kinderquest",
   scheme: "kinderquest",
+  platforms: ["ios", "android"],
   version: "1.0.0",
+  jsEngine: "jsc",
   runtimeVersion: {
     policy: "appVersion"
+  },
+  updates: {
+    url: "https://u.expo.dev/62e488c9-bc56-4d6f-a04c-3289c17c23d1"
   },
   icon: "./assets/icon.png",
   orientation: "default",
@@ -47,9 +52,6 @@ module.exports = {
     ...(androidGoogleServicesFile ? { googleServicesFile: androidGoogleServicesFile } : {})
   },
   plugins: ["expo-router", "expo-notifications"],
-  web: {
-    bundler: "metro"
-  },
   experiments: {
     typedRoutes: true
   },

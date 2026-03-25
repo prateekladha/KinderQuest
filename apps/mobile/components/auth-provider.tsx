@@ -2,6 +2,7 @@ import type { PropsWithChildren } from "react";
 import { createContext, useContext, useEffect, useState } from "react";
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { getInitialSession, getMobileSupabaseClient } from "../lib/supabase";
+import { resetAppDataCache } from "../lib/app-data";
 
 interface AuthContextValue {
   client: SupabaseClient | null;
@@ -22,11 +23,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     let active = true;
+    let previousUserId: string | null = null;
 
     async function bootstrap() {
       const initialSession = await getInitialSession();
 
       if (active) {
+        previousUserId = initialSession?.user.id ?? null;
         setSession(initialSession);
         setIsLoading(false);
       }
@@ -42,6 +45,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
 
     const listener = client.auth.onAuthStateChange((_event, nextSession: Session | null) => {
+      const nextUserId = nextSession?.user.id ?? null;
+
+      if (previousUserId !== nextUserId) {
+        resetAppDataCache();
+      }
+
+      previousUserId = nextUserId;
       setSession(nextSession);
       setIsLoading(false);
     });

@@ -9,7 +9,7 @@ import { useMembershipState } from "../lib/membership";
 
 export default function StartSetupScreen() {
   const { client, session, isLoading: authLoading } = useAuth();
-  const { isLoading, hasMember, invite } = useMembershipState(Boolean(session));
+  const { isLoading, hasMember, invite } = useMembershipState(session);
 
   if (authLoading || isLoading) {
     return <LoadingState />;

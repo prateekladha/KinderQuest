@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Redirect, router, usePathname } from "expo-router";
+import { Redirect, router } from "expo-router";
 import { Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions, type LayoutChangeEvent, type ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { tokens } from "@kinderquest/ui";
@@ -13,7 +13,6 @@ import { useAppData } from "../../lib/app-data";
 export default function ParentsScreen() {
   const { width } = useWindowDimensions();
   const isTablet = width >= 768;
-  const pathname = usePathname();
   const scrollRef = useRef<ScrollView | null>(null);
   const sectionOffsets = useRef<Record<"task" | "reward", number>>({
     task: 0,
@@ -34,12 +33,6 @@ export default function ParentsScreen() {
   const [rewardTitle, setRewardTitle] = useState("");
   const [rewardCost, setRewardCost] = useState("");
   const [rewardState, setRewardState] = useState<"idle" | "saving" | "done">("idle");
-
-  useEffect(() => {
-    if (pathname === "/parents" && !isLoading) {
-      void refresh();
-    }
-  }, [pathname]);
 
   if (isLoading || !data || !summary) {
     return <LoadingState />;
@@ -141,6 +134,8 @@ export default function ParentsScreen() {
     <ScreenShell
       scrollRef={scrollRef}
       headerRight={<Pill label={`${totalStars} Stars`} />}
+      onRefresh={refresh}
+      refreshing={isLoading}
       subtitle="Points & Rewards"
       title="Parent Control Panel"
     >

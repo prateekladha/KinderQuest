@@ -1,6 +1,5 @@
-import { useEffect } from "react";
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
-import { Redirect, router, usePathname } from "expo-router";
+import { Redirect, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { tokens } from "@kinderquest/ui";
 import { GradientHero, Pill, SurfaceCard } from "../../components/cards";
@@ -13,15 +12,8 @@ import { registerDebugTap } from "../../lib/debug-unlock";
 export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const isTablet = width >= 768;
-  const pathname = usePathname();
   const { data, isLoading, summary, refresh } = useAppData();
   const { client } = useAuth();
-
-  useEffect(() => {
-    if (pathname === "/home" && !isLoading) {
-      void refresh();
-    }
-  }, [pathname]);
 
   if (isLoading || !data || !summary) {
     return <LoadingState />;
@@ -40,6 +32,8 @@ export default function HomeScreen() {
     <ScreenShell
       subtitle="Points & Rewards"
       headerRight={<Pill label={`${data.snapshot.childBalance} Stars`} />}
+      onRefresh={refresh}
+      refreshing={isLoading}
       title={
         <Pressable onPress={registerDebugTap}>
           <Text style={styles.screenTitle}>{`${data.snapshot.childName}'s Home`}</Text>
