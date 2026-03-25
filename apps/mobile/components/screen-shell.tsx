@@ -23,8 +23,10 @@ export function ScreenShell({
   const { width } = useWindowDimensions();
   const isTablet = width >= 768;
   const appVersion = Constants.expoConfig?.version ?? "dev";
-  const updateId = typeof Constants.manifest2?.id === "string" ? Constants.manifest2.id : null;
-  const updateLabel = updateId ? updateId.slice(0, 8) : "embedded";
+  const runtimeVersion =
+    typeof Constants.expoRuntimeVersion === "string" && Constants.expoRuntimeVersion.length > 0
+      ? Constants.expoRuntimeVersion
+      : "embedded";
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -51,7 +53,7 @@ export function ScreenShell({
         )}
         {children}
         <View style={styles.versionRow}>
-          <Text style={styles.versionText}>{`v${appVersion} · ${updateLabel}`}</Text>
+          <Text style={styles.versionText}>{`v${appVersion} · ${runtimeVersion}`}</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
