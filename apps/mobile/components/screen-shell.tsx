@@ -1,7 +1,6 @@
 import type { PropsWithChildren, ReactNode, RefObject } from "react";
 import { RefreshControl, ScrollView, StyleSheet, Text, View, useWindowDimensions, type ScrollViewProps } from "react-native";
 import Constants from "expo-constants";
-import * as Updates from "expo-updates";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { tokens } from "@kinderquest/ui";
 
@@ -24,7 +23,8 @@ export function ScreenShell({
   const { width } = useWindowDimensions();
   const isTablet = width >= 768;
   const appVersion = Constants.expoConfig?.version ?? "dev";
-  const updateLabel = Updates.updateId ? Updates.updateId.slice(0, 8) : "embedded";
+  const updateId = typeof Constants.manifest2?.id === "string" ? Constants.manifest2.id : null;
+  const updateLabel = updateId ? updateId.slice(0, 8) : "embedded";
 
   return (
     <SafeAreaView style={styles.safeArea}>
