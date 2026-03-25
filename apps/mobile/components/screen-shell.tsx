@@ -1,6 +1,5 @@
 import type { PropsWithChildren, ReactNode, RefObject } from "react";
 import { RefreshControl, ScrollView, StyleSheet, Text, View, useWindowDimensions, type ScrollViewProps } from "react-native";
-import Constants from "expo-constants";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { tokens } from "@kinderquest/ui";
 
@@ -22,11 +21,6 @@ export function ScreenShell({
 }>) {
   const { width } = useWindowDimensions();
   const isTablet = width >= 768;
-  const appVersion = Constants.expoConfig?.version ?? "dev";
-  const runtimeVersion =
-    typeof Constants.expoRuntimeVersion === "string" && Constants.expoRuntimeVersion.length > 0
-      ? Constants.expoRuntimeVersion
-      : "embedded";
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -52,9 +46,6 @@ export function ScreenShell({
           </View>
         )}
         {children}
-        <View style={styles.versionRow}>
-          <Text style={styles.versionText}>{`v${appVersion} · ${runtimeVersion}`}</Text>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -128,16 +119,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     color: tokens.color.secondary
-  },
-  versionRow: {
-    alignItems: "center",
-    paddingTop: 4,
-    paddingBottom: 8
-  },
-  versionText: {
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 0.4,
-    color: tokens.color.textSoft
   }
 });

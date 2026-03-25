@@ -2,7 +2,7 @@
   "name": "mobile",
   "version": "0.1.0",
   "private": true,
-  "main": "expo-router/entry",
+  "main": "./index.js",
   "scripts": {
     "dev": "PATH=/opt/homebrew/lib/ruby/gems/3.4.0/bin:/opt/homebrew/bin:/usr/local/bin:$PATH EXPO_NO_TELEMETRY=1 expo start",
     "start": "PATH=/opt/homebrew/lib/ruby/gems/3.4.0/bin:/opt/homebrew/bin:/usr/local/bin:$PATH EXPO_NO_TELEMETRY=1 expo start",

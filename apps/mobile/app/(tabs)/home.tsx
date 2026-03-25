@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { Redirect, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import Constants from "expo-constants";
 import { tokens } from "@kinderquest/ui";
 import { GradientHero, Pill, SurfaceCard } from "../../components/cards";
 import { useAuth } from "../../components/auth-provider";
@@ -14,6 +15,11 @@ export default function HomeScreen() {
   const isTablet = width >= 768;
   const { data, isLoading, summary, refresh } = useAppData();
   const { client } = useAuth();
+  const appVersion = Constants.expoConfig?.version ?? "dev";
+  const runtimeVersion =
+    typeof Constants.expoRuntimeVersion === "string" && Constants.expoRuntimeVersion.length > 0
+      ? Constants.expoRuntimeVersion
+      : "embedded";
 
   if (isLoading || !data || !summary) {
     return <LoadingState />;
@@ -128,6 +134,10 @@ export default function HomeScreen() {
           </Text>
         </View>
       </SurfaceCard>
+
+      <View style={styles.versionRow}>
+        <Text style={styles.versionText}>{`v${appVersion} · ${runtimeVersion}`}</Text>
+      </View>
     </ScreenShell>
   );
 }
@@ -285,6 +295,16 @@ const styles = StyleSheet.create({
   accountActionRow: {
     flexDirection: "row",
     justifyContent: "flex-end"
+  },
+  versionRow: {
+    alignItems: "center",
+    paddingBottom: 8
+  },
+  versionText: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.4,
+    color: tokens.color.textSoft
   },
   signOutLink: {
     fontSize: 14,

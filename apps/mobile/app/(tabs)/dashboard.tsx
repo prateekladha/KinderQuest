@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { Redirect } from "expo-router";
+import Constants from "expo-constants";
 import { tokens } from "@kinderquest/ui";
 import { Pill, SurfaceCard } from "../../components/cards";
 import { LoadingState } from "../../components/loading-state";
@@ -11,6 +12,11 @@ export default function DashboardScreen() {
   const { width } = useWindowDimensions();
   const isTablet = width >= 768;
   const { data, isLoading, refresh } = useAppData();
+  const appVersion = Constants.expoConfig?.version ?? "dev";
+  const runtimeVersion =
+    typeof Constants.expoRuntimeVersion === "string" && Constants.expoRuntimeVersion.length > 0
+      ? Constants.expoRuntimeVersion
+      : "embedded";
 
   if (isLoading || !data) {
     return <LoadingState />;
@@ -133,6 +139,10 @@ export default function DashboardScreen() {
           </View>
         ))}
       </View>
+
+      <View style={styles.versionRow}>
+        <Text style={styles.versionText}>{`v${appVersion} · ${runtimeVersion}`}</Text>
+      </View>
     </ScreenShell>
   );
 }
@@ -216,6 +226,16 @@ const styles = StyleSheet.create({
   childChipLabel: {
     fontSize: 12,
     fontWeight: "800",
+    color: tokens.color.textSoft
+  },
+  versionRow: {
+    alignItems: "center",
+    paddingBottom: 8
+  },
+  versionText: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.4,
     color: tokens.color.textSoft
   }
 });
