@@ -59,6 +59,9 @@ importers:
       expo-router:
         specifier: ~5.1.11
         version: 5.1.11(b4a2f3196a038b4caa97300df9f3b572)
+      expo-splash-screen:
+        specifier: ~0.30.10
+        version: 0.30.10(expo@53.0.27(@babel/core@7.29.0)(@expo/metro-runtime@5.0.5(react-native@0.79.6(@babel/core@7.29.0)(@react-native-community/cli@20.1.2(typescript@5.9.3))(@types/react@19.2.14)(react@19.0.0)))(react-native@0.79.6(@babel/core@7.29.0)(@react-native-community/cli@20.1.2(typescript@5.9.3))(@types/react@19.2.14)(react@19.0.0))(react@19.0.0))
       expo-status-bar:
         specifier: ~2.2.3
         version: 2.2.3(react-native@0.79.6(@babel/core@7.29.0)(@react-native-community/cli@20.1.2(typescript@5.9.3))(@types/react@19.2.14)(react@19.0.0))(react@19.0.0)
@@ -1962,6 +1965,11 @@ packages:
         optional: true
       react-server-dom-webpack:
         optional: true
+
+  expo-splash-screen@0.30.10:
+    resolution: {integrity: sha512-Tt9va/sLENQDQYeOQ6cdLdGvTZ644KR3YG9aRlnpcs2/beYjOX1LHT510EGzVN9ljUTg+1ebEo5GGt2arYtPjw==}
+    peerDependencies:
+      expo: '*'
 
   expo-status-bar@2.2.3:
     resolution: {integrity: sha512-+c8R3AESBoduunxTJ8353SqKAKpxL6DvcD8VKBuh81zzJyUUbfB4CVjr1GufSJEKsMzNPXZU+HJwXx7Xh7lx8Q==}
@@ -6089,6 +6097,13 @@ snapshots:
       - '@types/react'
       - react
       - react-native
+      - supports-color
+
+  expo-splash-screen@0.30.10(expo@53.0.27(@babel/core@7.29.0)(@expo/metro-runtime@5.0.5(react-native@0.79.6(@babel/core@7.29.0)(@react-native-community/cli@20.1.2(typescript@5.9.3))(@types/react@19.2.14)(react@19.0.0)))(react-native@0.79.6(@babel/core@7.29.0)(@react-native-community/cli@20.1.2(typescript@5.9.3))(@types/react@19.2.14)(react@19.0.0))(react@19.0.0)):
+    dependencies:
+      '@expo/prebuild-config': 9.0.12
+      expo: 53.0.27(@babel/core@7.29.0)(@expo/metro-runtime@5.0.5(react-native@0.79.6(@babel/core@7.29.0)(@react-native-community/cli@20.1.2(typescript@5.9.3))(@types/react@19.2.14)(react@19.0.0)))(react-native@0.79.6(@babel/core@7.29.0)(@react-native-community/cli@20.1.2(typescript@5.9.3))(@types/react@19.2.14)(react@19.0.0))(react@19.0.0)
+    transitivePeerDependencies:
       - supports-color
 
   expo-status-bar@2.2.3(react-native@0.79.6(@babel/core@7.29.0)(@react-native-community/cli@20.1.2(typescript@5.9.3))(@types/react@19.2.14)(react@19.0.0))(react@19.0.0):

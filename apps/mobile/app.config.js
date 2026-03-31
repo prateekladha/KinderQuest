@@ -35,23 +35,39 @@ module.exports = {
     url: "https://u.expo.dev/62e488c9-bc56-4d6f-a04c-3289c17c23d1"
   },
   icon: "./assets/icon.png",
+  splash: {
+    image: "./assets/icon.png",
+    resizeMode: "contain",
+    backgroundColor: "#F7F1DF"
+  },
   orientation: "default",
   userInterfaceStyle: "light",
   ios: {
     supportsTablet: true,
-    bundleIdentifier: "com.kinderquest.app",
+    bundleIdentifier: "com.prateekladha.kinderquest",
     buildNumber: "1",
     ...(iosGoogleServicesFile ? { googleServicesFile: iosGoogleServicesFile } : {})
   },
   android: {
-    package: "com.kinderquest.app",
+    package: "com.prateekladha.kinderquest",
     adaptiveIcon: {
       foregroundImage: "./assets/adaptive-icon.png",
       backgroundColor: "#F7F1DF"
     },
     ...(androidGoogleServicesFile ? { googleServicesFile: androidGoogleServicesFile } : {})
   },
-  plugins: ["expo-router", "expo-notifications"],
+  plugins: [
+    "expo-router",
+    "expo-notifications",
+    [
+      "expo-splash-screen",
+      {
+        image: "./assets/icon.png",
+        resizeMode: "contain",
+        backgroundColor: "#F7F1DF"
+      }
+    ]
+  ],
   experiments: {
     typedRoutes: true
   },

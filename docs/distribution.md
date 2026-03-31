@@ -39,17 +39,24 @@ That command writes the Expo project id back into the app config. Keep it pointe
 
 ### iPhone
 
-Build an internal iOS binary:
+Before your first iOS build, make sure these Apple-side items exist:
+
+- the paid Apple Developer Program is active for your Apple ID
+- an App Store Connect app exists for bundle id `com.prateekladha.kinderquest`
+- you can sign in to App Store Connect from EAS when prompted
+
+Build an internal iOS binary for device testing:
 
 ```bash
-npx eas-cli build --platform ios --profile preview
+cd apps/mobile
+pnpm run eas:build:ios:preview
 ```
 
 After the build finishes:
 
 - open the EAS build link
-- install the build on a real iPhone
-- or distribute through TestFlight if you want broader beta testing
+- install it on registered devices if EAS created an ad hoc build
+- or distribute it through TestFlight for broader beta testing
 
 ### Android
 
@@ -70,23 +77,65 @@ After the build finishes:
 Use these when you still need native debug tooling:
 
 ```bash
+cd apps/mobile
 npx eas-cli build --platform ios --profile development
 npx eas-cli build --platform android --profile development
 ```
 
 ## Production Release Builds
 
-When you are ready for store submission:
+When you are ready for TestFlight or App Store submission:
 
 ```bash
-npx eas-cli build --platform ios --profile production
+cd apps/mobile
+pnpm run eas:build:ios:production
+```
+
+After the iOS production build succeeds, submit it to App Store Connect:
+
+```bash
+cd apps/mobile
+pnpm run eas:submit:ios
+```
+
+If this is the first iOS submission for the app, App Store Connect will still require manual setup for:
+
+- app privacy answers
+- screenshots
+- age rating
+- pricing and availability
+- TestFlight tester groups or App Review metadata
+
+Android store build:
+
+```bash
+cd apps/mobile
 npx eas-cli build --platform android --profile production
 ```
 
 Then submit through:
 
-- App Store Connect / TestFlight for iPhone
+- TestFlight / App Store Connect for iPhone
 - Google Play Console for Android
+
+## iOS First-Time Credential Flow
+
+The first time you run an iOS EAS build, EAS will usually ask to:
+
+1. log in to your Expo account
+2. log in to your Apple Developer account
+3. create or reuse the iOS distribution certificate
+4. create or reuse the provisioning profile
+
+Recommended choice: let EAS manage the iOS credentials unless you already maintain them manually.
+
+Useful checks before building:
+
+```bash
+cd apps/mobile
+npx eas-cli credentials -p ios
+npx eas-cli build:configure
+```
 
 ## Push Notification Testing
 
@@ -108,6 +157,8 @@ Both files are required if you want push registration to work on both platforms:
 
 - `apps/mobile/google-services.json` for Android
 - `apps/mobile/GoogleService-Info.plist` for iOS
+
+If you change the app identifier or bundle id, regenerate both Firebase files for the new app ids before rebuilding.
 
 These are referenced from Expo config in `apps/mobile/app.config.js` and should not be committed to git.
 

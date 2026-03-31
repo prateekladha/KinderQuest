@@ -10,6 +10,9 @@
     "ios": "PATH=/opt/homebrew/lib/ruby/gems/3.4.0/bin:/opt/homebrew/bin:/usr/local/bin:$PATH EXPO_NO_TELEMETRY=1 expo run:ios",
     "web": "PATH=/opt/homebrew/lib/ruby/gems/3.4.0/bin:/opt/homebrew/bin:/usr/local/bin:$PATH EXPO_NO_TELEMETRY=1 expo start --web",
     "config": "PATH=/opt/homebrew/lib/ruby/gems/3.4.0/bin:/opt/homebrew/bin:/usr/local/bin:$PATH EXPO_NO_TELEMETRY=1 expo config --type public",
+    "eas:build:ios:preview": "PATH=/opt/homebrew/lib/ruby/gems/3.4.0/bin:/opt/homebrew/bin:/usr/local/bin:$PATH EXPO_NO_TELEMETRY=1 npx eas-cli build --platform ios --profile preview",
+    "eas:build:ios:production": "PATH=/opt/homebrew/lib/ruby/gems/3.4.0/bin:/opt/homebrew/bin:/usr/local/bin:$PATH EXPO_NO_TELEMETRY=1 npx eas-cli build --platform ios --profile production",
+    "eas:submit:ios": "PATH=/opt/homebrew/lib/ruby/gems/3.4.0/bin:/opt/homebrew/bin:/usr/local/bin:$PATH EXPO_NO_TELEMETRY=1 npx eas-cli submit --platform ios --profile production",
     "typecheck": "tsc --noEmit",
     "lint": "eslint ."
   },
@@ -28,6 +31,7 @@
     "expo-linking": "~7.1.7",
     "expo-notifications": "^0.31.5",
     "expo-router": "~5.1.11",
+    "expo-splash-screen": "~0.30.10",
     "expo-status-bar": "~2.2.3",
     "expo-updates": "~0.28.18",
     "react": "19.0.0",

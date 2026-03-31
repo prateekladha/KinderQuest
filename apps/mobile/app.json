@@ -9,12 +9,12 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.kinderquest.app",
+      "bundleIdentifier": "com.prateekladha.kinderquest",
       "buildNumber": "1",
       "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
-      "package": "com.kinderquest.app",
+      "package": "com.prateekladha.kinderquest",
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
